@@ -8,8 +8,22 @@ inventories:
         name: " "
     20:
       type: "kit: iron"
+    29:
+      item:
+        id: "ARROW"
+        name: "&ePreview %kit_name%"
+        lore:
+          - "&7Click to see this kit's contents."
+      type: "kit_preview: iron"
     24:
       type: "kit: food"
+    33:
+      item:
+        id: "ARROW"
+        name: "&ePreview %kit_name%"
+        lore:
+          - "&7Click to see this kit's contents."
+      type: "kit_preview: food"
     49:
       item:
         id: "DIAMOND_BLOCK"
@@ -24,6 +38,13 @@ inventories:
         name: " "
     22:
       type: "kit: diamond"
+    31:
+      item:
+        id: "ARROW"
+        name: "&ePreview %kit_name%"
+        lore:
+          - "&7Click to see this kit's contents."
+      type: "kit_preview: diamond"
     49:
       item:
         id: "IRON_BLOCK"

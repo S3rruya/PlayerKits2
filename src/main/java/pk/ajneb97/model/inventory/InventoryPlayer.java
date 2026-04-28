@@ -9,11 +9,13 @@ public class InventoryPlayer {
 
     private String previousInventoryName;
     private String kitName;
+    private int previewShulkerIndex;
     private ItemStack[] savedInventoryContents;
 
     public InventoryPlayer(Player player, String inventoryName) {
         this.player = player;
         this.inventoryName = inventoryName;
+        this.previewShulkerIndex = 0;
     }
 
     public Player getPlayer() {
@@ -46,6 +48,14 @@ public class InventoryPlayer {
 
     public void setKitName(String kitName) {
         this.kitName = kitName;
+    }
+
+    public int getPreviewShulkerIndex() {
+        return previewShulkerIndex;
+    }
+
+    public void setPreviewShulkerIndex(int previewShulkerIndex) {
+        this.previewShulkerIndex = previewShulkerIndex;
     }
 
     public void restoreSavedInventoryContents() {

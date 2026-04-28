@@ -135,6 +135,14 @@ public class VerifyManager {
                    criticalErrors = true;
                }
            }
+           if(type != null && type.startsWith("kit_preview: ")){
+               String kitName = type.replace("kit_preview: ","");
+               if(kitsManager.getKitByName(kitName) == null){
+                   errors.add(new PKInventoryInvalidKitError("inventory.yml",null,true,kitName,
+                           inventory.getName(),item.getSlotsString()));
+                   criticalErrors = true;
+               }
+           }
 
            String openInventory = item.getOpenInventory();
            if(openInventory != null){

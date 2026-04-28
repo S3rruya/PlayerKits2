@@ -56,7 +56,7 @@ public class PlayerListener implements Listener {
                 return;
             }
 
-            if(event.getClickedInventory().equals(InventoryUtils.getTopInventory(player))) {
+            if(event.getClickedInventory() != null && event.getClickedInventory().equals(InventoryUtils.getTopInventory(player))) {
                 ClickType clickType = event.getClick();
                 invManager.clickInventory(inventoryPlayer,event.getCurrentItem(),clickType);
             }

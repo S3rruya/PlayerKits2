@@ -1,11 +1,15 @@
 package pk.ajneb97.managers;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.block.BlockState;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import pk.ajneb97.PlayerKits2;
 import pk.ajneb97.configs.MainConfigManager;
@@ -80,6 +84,11 @@ public class InventoryManager {
     }
 
     public void openInventory(InventoryPlayer inventoryPlayer){
+        if(inventoryPlayer.getInventoryName().equals("preview_shulker_inventory")){
+            openPreviewShulkerInventory(inventoryPlayer);
+            return;
+        }
+
         KitInventory kitInventory = getInventory(inventoryPlayer.getInventoryName());
         MainConfigManager mainConfigManager = plugin.getConfigsManager().getMainConfigManager();
 
@@ -106,6 +115,14 @@ public class InventoryManager {
                 if(type != null && type.startsWith("kit: ")){
                     setKit(type.replace("kit: ",""),inventoryPlayer.getPlayer(),inv,slot,kitsManager
                             ,playerDataManager,kitItemManager,null);
+                    continue;
+                }
+                if(type != null && type.startsWith("kit_preview: ")){
+                    ItemStack item = createKitPreviewButton(itemInventory,type.replace("kit_preview: ",""),
+                            inventoryPlayer.getPlayer(),kitItemManager);
+                    if(item != null){
+                        inv.setItem(slot,item);
+                    }
                     continue;
                 }
 
@@ -154,6 +171,30 @@ public class InventoryManager {
         return item;
     }
 
+    private ItemStack createKitPreviewButton(ItemKitInventory itemInventory, String kitName, Player player,
+                                             KitItemManager kitItemManager) {
+        Kit kit = plugin.getKitsManager().getKitByName(kitName);
+        if(kit == null){
+            return null;
+        }
+
+        KitItem kitItem = itemInventory.getItem();
+        if(kitItem == null){
+            kitItem = new KitItem("ARROW");
+            kitItem.setName("&ePreview %kit_name%");
+        }else{
+            kitItem = kitItem.clone();
+        }
+
+        ArrayList<KitVariable> variables = new ArrayList<>();
+        variables.add(new KitVariable("%kit_name%",kit.getName()));
+        kitItemManager.replaceVariables(kitItem,variables,player);
+
+        ItemStack item = kitItemManager.createItemFromKitItem(kitItem,player,kit);
+        item = ItemUtils.setTagStringItem(plugin,item,"playerkits_kit_preview",kitName);
+        return setItemActions(itemInventory,item);
+    }
+
     public void setKitPreviewItems(Inventory inv,InventoryPlayer inventoryPlayer,KitInventory kitInventory){
         KitItemManager kitItemManager = plugin.getKitItemManager();
         KitsManager kitsManager = plugin.getKitsManager();
@@ -176,6 +217,10 @@ public class InventoryManager {
         int slot = 0;
         for(KitItem kitItem : allItems){
             ItemStack item = kitItemManager.createItemFromKitItem(kitItem,inventoryPlayer.getPlayer(),kit);
+            int shulkerIndex = getPreviewShulkerIndex(allItems,kitItem,inventoryPlayer.getPlayer(),kit);
+            if(shulkerIndex != -1){
+                item = ItemUtils.setTagStringItem(plugin,item,"playerkits_preview_shulker",String.valueOf(shulkerIndex));
+            }
             if(kitItem.getPreviewSlot() != -1){
                 inv.setItem(kitItem.getPreviewSlot(),item);
             }else{
@@ -193,6 +238,26 @@ public class InventoryManager {
         String kitName = ItemUtils.getTagStringItem(plugin,item,"playerkits_kit");
         if(kitName != null){
             clickOnKitItem(inventoryPlayer,kitName,clickType);
+            return;
+        }
+
+        String previewKitName = ItemUtils.getTagStringItem(plugin,item,"playerkits_kit_preview");
+        if(previewKitName != null){
+            openKitPreview(inventoryPlayer,previewKitName);
+            return;
+        }
+
+        String previewShulkerIndex = ItemUtils.getTagStringItem(plugin,item,"playerkits_preview_shulker");
+        if(previewShulkerIndex != null){
+            inventoryPlayer.setPreviewShulkerIndex(Integer.valueOf(previewShulkerIndex));
+            inventoryPlayer.setInventoryName("preview_shulker_inventory");
+            openInventory(inventoryPlayer);
+            return;
+        }
+
+        String previewShulkerAction = ItemUtils.getTagStringItem(plugin,item,"playerkits_preview_shulker_action");
+        if(previewShulkerAction != null){
+            clickOnPreviewShulkerAction(inventoryPlayer,previewShulkerAction);
             return;
         }
 
@@ -228,22 +293,7 @@ public class InventoryManager {
         MessagesManager msgManager = plugin.getMessagesManager();
 
         if(clickType.equals(ClickType.RIGHT)){
-            //Preview
-            if(!mainConfigManager.isKitPreview()){
-                return;
-            }
-
-            Kit kit = plugin.getKitsManager().getKitByName(kitName);
-            if(kit.isPermissionRequired()){
-                if(mainConfigManager.isKitPreviewRequiresKitPermission() && !kit.playerHasPermission(player)){
-                    msgManager.sendMessage(player,messagesConfig.getString("cantPreviewError"),true);
-                    return;
-                }
-            }
-            inventoryPlayer.setPreviousInventoryName(inventoryPlayer.getInventoryName());
-            inventoryPlayer.setInventoryName("preview_inventory");
-            inventoryPlayer.setKitName(kitName);
-            openInventory(inventoryPlayer);
+            openKitPreview(inventoryPlayer,kitName);
             return;
         }
 
@@ -271,6 +321,181 @@ public class InventoryManager {
         }
 
         openInventory(inventoryPlayer);
+    }
+
+    public void openKitPreview(InventoryPlayer inventoryPlayer,String kitName){
+        MainConfigManager mainConfigManager = plugin.getConfigsManager().getMainConfigManager();
+        Player player = inventoryPlayer.getPlayer();
+        FileConfiguration messagesConfig = plugin.getConfigsManager().getMessagesConfigManager().getConfig();
+        MessagesManager msgManager = plugin.getMessagesManager();
+
+        if(!mainConfigManager.isKitPreview()){
+            return;
+        }
+
+        Kit kit = plugin.getKitsManager().getKitByName(kitName);
+        if(kit == null){
+            return;
+        }
+
+        if(kit.isPermissionRequired()){
+            if(mainConfigManager.isKitPreviewRequiresKitPermission() && !kit.playerHasPermission(player)){
+                msgManager.sendMessage(player,messagesConfig.getString("cantPreviewError"),true);
+                return;
+            }
+        }
+
+        if(!inventoryPlayer.getInventoryName().equals("preview_inventory")
+                && !inventoryPlayer.getInventoryName().equals("preview_shulker_inventory")){
+            inventoryPlayer.setPreviousInventoryName(inventoryPlayer.getInventoryName());
+        }
+        inventoryPlayer.setInventoryName("preview_inventory");
+        inventoryPlayer.setKitName(kitName);
+        inventoryPlayer.setPreviewShulkerIndex(0);
+        openInventory(inventoryPlayer);
+    }
+
+    private void openPreviewShulkerInventory(InventoryPlayer inventoryPlayer){
+        ArrayList<ItemStack> shulkers = getPreviewShulkerItems(inventoryPlayer);
+        if(shulkers.isEmpty()){
+            inventoryPlayer.setInventoryName("preview_inventory");
+            openInventory(inventoryPlayer);
+            return;
+        }
+
+        int index = inventoryPlayer.getPreviewShulkerIndex();
+        if(index < 0){
+            index = shulkers.size()-1;
+        }
+        if(index >= shulkers.size()){
+            index = 0;
+        }
+        inventoryPlayer.setPreviewShulkerIndex(index);
+
+        ItemStack shulker = shulkers.get(index);
+        Inventory inv = Bukkit.createInventory(null,36,
+                MessagesManager.getLegacyColoredMessage("&4&lShulker Preview &8("+(index+1)+"/"+shulkers.size()+")"));
+
+        ItemStack[] contents = getShulkerContents(shulker);
+        for(int i=0;i<contents.length && i<27;i++){
+            ItemStack content = contents[i];
+            if(content != null && !content.getType().equals(Material.AIR)){
+                inv.setItem(i,content.clone());
+            }
+        }
+
+        if(shulkers.size() > 1){
+            inv.setItem(27,createPreviewShulkerControl(Material.ARROW,"&ePrevious Shulker","previous"));
+            inv.setItem(35,createPreviewShulkerControl(Material.ARROW,"&eNext Shulker","next"));
+        }
+        inv.setItem(31,createPreviewShulkerControl(Material.BARRIER,"&cBack to Kit Preview","back"));
+
+        inventoryPlayer.getPlayer().openInventory(inv);
+        players.add(inventoryPlayer);
+    }
+
+    private ItemStack createPreviewShulkerControl(Material material, String name, String action){
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(MessagesManager.getLegacyColoredMessage(name));
+        item.setItemMeta(meta);
+        return ItemUtils.setTagStringItem(plugin,item,"playerkits_preview_shulker_action",action);
+    }
+
+    private void clickOnPreviewShulkerAction(InventoryPlayer inventoryPlayer,String action){
+        ArrayList<ItemStack> shulkers = getPreviewShulkerItems(inventoryPlayer);
+        if(action.equals("back") || shulkers.isEmpty()){
+            inventoryPlayer.setInventoryName("preview_inventory");
+            openInventory(inventoryPlayer);
+            return;
+        }
+
+        int index = inventoryPlayer.getPreviewShulkerIndex();
+        if(action.equals("previous")){
+            index--;
+        }else if(action.equals("next")){
+            index++;
+        }
+
+        if(index < 0){
+            index = shulkers.size()-1;
+        }
+        if(index >= shulkers.size()){
+            index = 0;
+        }
+
+        inventoryPlayer.setPreviewShulkerIndex(index);
+        openPreviewShulkerInventory(inventoryPlayer);
+    }
+
+    private int getPreviewShulkerIndex(ArrayList<KitItem> allItems, KitItem targetItem, Player player, Kit kit){
+        int index = 0;
+        for(KitItem kitItem : allItems){
+            ItemStack item = plugin.getKitItemManager().createItemFromKitItem(kitItem,player,kit);
+            if(hasShulkerContents(item)){
+                if(kitItem == targetItem){
+                    return index;
+                }
+                index++;
+            }
+        }
+        return -1;
+    }
+
+    private ArrayList<ItemStack> getPreviewShulkerItems(InventoryPlayer inventoryPlayer){
+        ArrayList<ItemStack> shulkers = new ArrayList<>();
+        Kit kit = plugin.getKitsManager().getKitByName(inventoryPlayer.getKitName());
+        if(kit == null){
+            return shulkers;
+        }
+
+        ArrayList<KitItem> allItems = new ArrayList<>();
+        allItems.addAll(kit.getItems());
+        for(KitAction kitAction : kit.getClaimActions()){
+            KitItem kitItem = kitAction.getDisplayItem();
+            if(kitItem != null){
+                allItems.add(kitItem);
+            }
+        }
+
+        for(KitItem kitItem : allItems){
+            ItemStack item = plugin.getKitItemManager().createItemFromKitItem(kitItem,inventoryPlayer.getPlayer(),kit);
+            if(hasShulkerContents(item)){
+                shulkers.add(item);
+            }
+        }
+        return shulkers;
+    }
+
+    private boolean hasShulkerContents(ItemStack item){
+        ItemStack[] contents = getShulkerContents(item);
+        for(ItemStack content : contents){
+            if(content != null && !content.getType().equals(Material.AIR)){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private ItemStack[] getShulkerContents(ItemStack item){
+        if(item == null || item.getType().equals(Material.AIR) || !item.getType().name().contains("SHULKER")){
+            return new ItemStack[0];
+        }
+        if(!(item.getItemMeta() instanceof BlockStateMeta)){
+            return new ItemStack[0];
+        }
+
+        BlockStateMeta meta = (BlockStateMeta) item.getItemMeta();
+        if(!meta.hasBlockState()){
+            return new ItemStack[0];
+        }
+
+        BlockState state = meta.getBlockState();
+        if(!(state instanceof InventoryHolder)){
+            return new ItemStack[0];
+        }
+
+        return ((InventoryHolder) state).getInventory().getContents();
     }
 
     public void clickOnOpenInventoryItem(InventoryPlayer inventoryPlayer,String openInventory){
