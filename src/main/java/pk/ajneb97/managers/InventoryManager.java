@@ -125,6 +125,17 @@ public class InventoryManager {
                     }
                     continue;
                 }
+                if(type == null && itemInventory.getItem() != null && hasKitNameVariable(itemInventory.getItem())){
+                    String previewKitName = getKitNameAboveSlot(kitInventory,slot);
+                    if(previewKitName != null){
+                        ItemStack item = createKitPreviewButton(itemInventory,previewKitName,
+                                inventoryPlayer.getPlayer(),kitItemManager);
+                        if(item != null){
+                            inv.setItem(slot,item);
+                        }
+                        continue;
+                    }
+                }
 
                 ItemStack item = kitItemManager.createItemFromKitItem(itemInventory.getItem(),inventoryPlayer.getPlayer(),null);
 
@@ -169,6 +180,36 @@ public class InventoryManager {
             item = ItemUtils.setTagStringItem(plugin, item, "playerkits_item_actions", actionsList);
         }
         return item;
+    }
+
+    private boolean hasKitNameVariable(KitItem item){
+        if(item.getName() != null && item.getName().contains("%kit_name%")){
+            return true;
+        }
+        if(item.getLore() == null){
+            return false;
+        }
+
+        for(String line : item.getLore()){
+            if(line.contains("%kit_name%")){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String getKitNameAboveSlot(KitInventory kitInventory, int slot){
+        int kitSlot = slot-9;
+        if(kitSlot < 0){
+            return null;
+        }
+
+        for(ItemKitInventory item : kitInventory.getItems()){
+            if(item.getType() != null && item.getType().startsWith("kit: ") && item.getSlots().contains(kitSlot)){
+                return item.getType().replace("kit: ","");
+            }
+        }
+        return null;
     }
 
     private ItemStack createKitPreviewButton(ItemKitInventory itemInventory, String kitName, Player player,
@@ -373,8 +414,7 @@ public class InventoryManager {
         inventoryPlayer.setPreviewShulkerIndex(index);
 
         ItemStack shulker = shulkers.get(index);
-        Inventory inv = Bukkit.createInventory(null,36,
-                MessagesManager.getLegacyColoredMessage("&4&lShulker Preview &8("+(index+1)+"/"+shulkers.size()+")"));
+        Inventory inv = Bukkit.createInventory(null,36,getShulkerPreviewTitle(shulker,index,shulkers.size()));
 
         ItemStack[] contents = getShulkerContents(shulker);
         for(int i=0;i<contents.length && i<27;i++){
@@ -496,6 +536,33 @@ public class InventoryManager {
         }
 
         return ((InventoryHolder) state).getInventory().getContents();
+    }
+
+    private String getShulkerPreviewTitle(ItemStack shulker, int index, int total){
+        ItemMeta meta = shulker.getItemMeta();
+        String title;
+        if(meta != null && meta.hasDisplayName()){
+            title = meta.getDisplayName();
+        }else{
+            title = formatMaterialName(shulker.getType().name());
+        }
+
+        if(total > 1){
+            title = title+" ("+(index+1)+"/"+total+")";
+        }
+        return title;
+    }
+
+    private String formatMaterialName(String materialName){
+        String[] words = materialName.toLowerCase().split("_");
+        StringBuilder text = new StringBuilder();
+        for(int i=0;i<words.length;i++){
+            if(i > 0){
+                text.append(" ");
+            }
+            text.append(words[i].substring(0,1).toUpperCase()).append(words[i].substring(1));
+        }
+        return text.toString();
     }
 
     public void clickOnOpenInventoryItem(InventoryPlayer inventoryPlayer,String openInventory){
