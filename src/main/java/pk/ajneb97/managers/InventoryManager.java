@@ -125,18 +125,6 @@ public class InventoryManager {
                     }
                     continue;
                 }
-                if(type == null && itemInventory.getItem() != null && hasKitNameVariable(itemInventory.getItem())){
-                    String previewKitName = getKitNameAboveSlot(kitInventory,slot);
-                    if(previewKitName != null){
-                        ItemStack item = createKitPreviewButton(itemInventory,previewKitName,
-                                inventoryPlayer.getPlayer(),kitItemManager);
-                        if(item != null){
-                            inv.setItem(slot,item);
-                        }
-                        continue;
-                    }
-                }
-
                 ItemStack item = kitItemManager.createItemFromKitItem(itemInventory.getItem(),inventoryPlayer.getPlayer(),null);
 
                 if(inventoryPlayer.getInventoryName().equals("buy_requirements_inventory")){
@@ -180,36 +168,6 @@ public class InventoryManager {
             item = ItemUtils.setTagStringItem(plugin, item, "playerkits_item_actions", actionsList);
         }
         return item;
-    }
-
-    private boolean hasKitNameVariable(KitItem item){
-        if(item.getName() != null && item.getName().contains("%kit_name%")){
-            return true;
-        }
-        if(item.getLore() == null){
-            return false;
-        }
-
-        for(String line : item.getLore()){
-            if(line.contains("%kit_name%")){
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private String getKitNameAboveSlot(KitInventory kitInventory, int slot){
-        int kitSlot = slot-9;
-        if(kitSlot < 0){
-            return null;
-        }
-
-        for(ItemKitInventory item : kitInventory.getItems()){
-            if(item.getType() != null && item.getType().startsWith("kit: ") && item.getSlots().contains(kitSlot)){
-                return item.getType().replace("kit: ","");
-            }
-        }
-        return null;
     }
 
     private ItemStack createKitPreviewButton(ItemKitInventory itemInventory, String kitName, Player player,
